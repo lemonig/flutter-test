@@ -1,0 +1,78 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- 真实接口需要网络权限；debug/profile 清单原本已声明，release 同样需要 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- 签到（M5-01）需要现场定位：精确坐标用于匹配 20 公里内的站点 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- 消息推送（M6-04）：Android 13+ 必须显式申请，否则通知被静默丢弃 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <application
+        android:label="绿洁运维"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
+        tools:replace="android:label">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
+        <!-- 高德地图 Key（M0-07）：沿用原 Android 工程（yunwei-android）的 Key。
+             高德按「包名 + 签名 SHA1」校验，本项目包名是 com.greandata.green_clean_ops，
+             与原工程 com.xiyoukeji.operations 不同，能否复用以真机实测为准。 -->
+        <meta-data
+            android:name="com.amap.api.v2.apikey"
+            android:value="f6457d0b866d0dc5e93e7f95f4a9bdc5"/>
+
+        <!-- 个推（M6-04）：核心服务必须单独进程，否则长连接不建立 -->
+        <service
+            android:name=".push.GreenPushService"
+            android:exported="false"
+            android:label="PushService"
+            android:process=":pushservice"/>
+        <!-- 个推回调服务：接收 CID 与消息事件 -->
+        <service
+            android:name=".push.GreenIntentService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE"/>
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
