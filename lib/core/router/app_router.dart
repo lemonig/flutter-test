@@ -25,7 +25,14 @@ import '../../features/profile/presentation/my_events_page.dart';
 import '../../features/profile/presentation/privacy_policy_page.dart';
 import '../../features/profile/presentation/profile_detail_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../../features/workbench/data/models/workbench_models.dart';
+import '../../features/workbench/presentation/apply_pages.dart';
+import '../../features/workbench/presentation/apply_record_pages.dart';
+import '../../features/workbench/presentation/directory_pages.dart';
+import '../../features/workbench/presentation/report_pages.dart';
+import '../../features/workbench/presentation/stats_pages.dart';
 import '../../features/workbench/presentation/workbench_page.dart';
+import '../../features/workbench/providers/workbench_providers.dart';
 import '../../navigation/main_shell.dart';
 import '../../shared/widgets/empty_state.dart';
 
@@ -129,6 +136,77 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
           initialLongitude: double.tryParse(
             state.uri.queryParameters['lng'] ?? '',
           ),
+        ),
+      ),
+      // ── 工作台（M7-02 ~ M7-10）──────────────────────────────
+      // 静态段必须排在动态段之前，否则被 :kind / :id 吃掉。
+      GoRoute(
+        path: '/workbench/stats/:kind',
+        name: 'workbenchStats',
+        builder: (BuildContext context, GoRouterState state) => StatisticsPage(
+          kind: StatsKind.values.firstWhere(
+            (StatsKind k) => k.name == state.pathParameters['kind'],
+            orElse: () => StatsKind.abnormal,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/workbench/directory/:kind',
+        name: 'workbenchDirectory',
+        builder: (BuildContext context, GoRouterState state) => DirectoryPage(
+          kind: DirectoryKind.values.firstWhere(
+            (DirectoryKind k) => k.name == state.pathParameters['kind'],
+            orElse: () => DirectoryKind.station,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/workbench/apply-records',
+        name: 'workbenchApplyRecords',
+        builder: (BuildContext context, GoRouterState state) =>
+            const ApplyRecordsPage(),
+      ),
+      GoRoute(
+        path: '/workbench/approvals',
+        name: 'workbenchApprovals',
+        builder: (BuildContext context, GoRouterState state) =>
+            const ApprovalCenterPage(),
+      ),
+      GoRoute(
+        path: '/workbench/report/:kind/new',
+        name: 'workbenchReportNew',
+        builder: (BuildContext context, GoRouterState state) => ReportFormPage(
+          kind: _reportKind(state.pathParameters['kind']),
+        ),
+      ),
+      GoRoute(
+        path: '/workbench/report/:kind/:id',
+        name: 'workbenchReportDetail',
+        builder: (BuildContext context, GoRouterState state) =>
+            ReportDetailPage(
+              kind: _reportKind(state.pathParameters['kind']),
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+            ),
+      ),
+      GoRoute(
+        path: '/workbench/report/:kind',
+        name: 'workbenchReportList',
+        builder: (BuildContext context, GoRouterState state) => ReportListPage(
+          kind: _reportKind(state.pathParameters['kind']),
+        ),
+      ),
+      GoRoute(
+        path: '/workbench/apply/:kind/submit',
+        name: 'workbenchApplySubmit',
+        builder: (BuildContext context, GoRouterState state) => ApplySubmitPage(
+          kind: _applyType(state.pathParameters['kind']),
+        ),
+      ),
+      GoRoute(
+        path: '/workbench/apply/:kind',
+        name: 'workbenchApplyPick',
+        builder: (BuildContext context, GoRouterState state) => ShopPickPage(
+          kind: _applyType(state.pathParameters['kind']),
         ),
       ),
       GoRoute(
@@ -326,3 +404,19 @@ String detailPathFor(TaskCategory category, String id) => switch (category) {
   TaskCategory.inspection => '/inspection/$id',
   TaskCategory.signIn => '/attend/$id',
 };
+
+/// 路径参数里的工作台枚举解析；未知值兜底到第一个成员，
+/// 让错误链接落到列表页而不是白屏。
+ReportKind _reportKind(String? raw) {
+  for (final ReportKind kind in ReportKind.values) {
+    if (kind.name == raw) return kind;
+  }
+  return ReportKind.mileage;
+}
+
+ApplyType _applyType(String? raw) {
+  for (final ApplyType type in ApplyType.values) {
+    if (type.name == raw) return type;
+  }
+  return ApplyType.reagent;
+}

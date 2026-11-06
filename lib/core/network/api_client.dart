@@ -88,12 +88,20 @@ class ApiClient {
 
   bool get isLoggingEnabled => _enableLog;
 
-  /// GET 并解包。
+  /// GET 并解包。[data] 用于个别约定要带 JSON body 的 GET 接口
+  /// （如 `GET car`，不传 body 服务端会空指针）。
   Future<ApiResponse> getRaw(
     String path, {
+    Object? data,
     Map<String, Object?>? query,
     CancelToken? cancelToken,
-  }) => _execute('GET', path, query: query, cancelToken: cancelToken);
+  }) => _execute(
+    'GET',
+    path,
+    data: data,
+    query: query,
+    cancelToken: cancelToken,
+  );
 
   /// POST 并解包（业务列表接口统一走 POST）。
   Future<ApiResponse> postRaw(
