@@ -10,6 +10,8 @@ import '../../../shared/utils/toast.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../home/data/repositories/address_repository.dart';
+import '../../home/presentation/address_list_page.dart';
 import '../../home/data/repositories/task_write_repository.dart';
 import '../data/models/workbench_models.dart';
 import '../data/repositories/report_repository.dart';
@@ -579,6 +581,21 @@ class _ApplySubmitPageState extends ConsumerState<ApplySubmitPage> {
     if (picked != null && mounted) setState(() => _ccUsers..clear()..addAll(picked));
   }
 
+  /// 从地址簿选一条回填收货信息；没有地址时直接进选择页新增也可。
+  Future<void> _pickFromAddressBook() async {
+    final ExpressAddress? picked = await Navigator.of(context).push(
+      MaterialPageRoute<ExpressAddress>(
+        builder: (BuildContext context) => const AddressListPage(selectMode: true),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _deliveryName.text = picked.name;
+      _deliveryPhone.text = picked.phone;
+      _deliveryAddress.text = picked.address;
+    });
+  }
+
   Future<void> _pickDate() async {
     final DateTime now = DateTime.now();
     final DateTime? picked = await showDatePicker(
@@ -816,7 +833,11 @@ class _ApplySubmitPageState extends ConsumerState<ApplySubmitPage> {
                 ),
               ),
             if (_needsDelivery) ...<Widget>[
-              const SectionHeader(title: '收货信息'),
+              SectionHeader(
+                title: '收货信息',
+                actionLabel: '从地址簿选择',
+                onAction: _pickFromAddressBook,
+              ),
               Card(
                 child: Column(
                   children: <Widget>[

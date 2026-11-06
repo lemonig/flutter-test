@@ -1,3 +1,4 @@
+import '../models/filter_group.dart';
 import '../models/task_item.dart';
 
 /// 首页任务列表数据源抽象。
@@ -10,6 +11,15 @@ abstract class HomeRepository {
     required int page,
     required int pageSize,
     Map<String, String> filters = const {},
+  });
+
+  /// 全局搜索（M2-04）：后端按 search_text（内容/站名/处理人等）
+  /// like 匹配，不按当前账号过滤，三类结果同构 timeline VO。
+  Future<List<TaskItem>> search({
+    required TaskCategory category,
+    required String keyword,
+    required int page,
+    int pageSize = 10,
   });
 
   /// 上一次请求后服务端报告的「是否还有下一页」。
@@ -31,6 +41,43 @@ class MockHomeRepository implements HomeRepository {
   bool? get lastResponseHasMore => null;
 
   @override
+  Future<List<TaskItem>> search({
+    required TaskCategory category,
+    required String keyword,
+    required int page,
+    int pageSize = 10,
+  }) async {
+    await Future<void>.delayed(delay);
+    final List<TaskItem> all = switch (category) {
+      TaskCategory.abnormal => _abnormalTasks,
+      TaskCategory.inspection => _inspectionTasks,
+      TaskCategory.signIn => _signInTasks,
+    };
+    final String query = keyword.trim();
+    if (query.isEmpty) return const [];
+    final List<TaskItem> matched = all
+        .where(
+          (TaskItem item) =>
+              item.content.contains(query) ||
+              item.stationName.contains(query) ||
+              item.executor.contains(query),
+        )
+        .toList();
+    // 数据不足时循环补足，与 fetchTasks 的演示口径一致。
+    final int total = matched.isEmpty
+        ? 0
+        : (matched.length * 3).clamp(pageSize, pageSize * 3);
+    final List<TaskItem> expanded = List<TaskItem>.generate(
+      total,
+      (int i) => matched[i % matched.length],
+    );
+    final int start = (page - 1) * pageSize;
+    if (start >= expanded.length) return const [];
+    final int end = (start + pageSize).clamp(0, expanded.length);
+    return expanded.sublist(start, end);
+  }
+
+  @override
   Future<List<TaskItem>> fetchTasks({
     required TaskCategory category,
     required int page,
@@ -45,21 +92,45 @@ class MockHomeRepository implements HomeRepository {
       TaskCategory.signIn => _signInTasks,
     };
 
-    final List<String> active = filters.values
-        .where((String value) => value.isNotEmpty && value != '全部')
+    final List<String> active = filters.entries
+        .where(
+          (MapEntry<String, String> e) =>
+              e.key != TaskFilterConfig.dateRangeKey &&
+              e.value.isNotEmpty &&
+              e.value != '全部',
+        )
+        .map((MapEntry<String, String> e) => e.value)
         .toList();
-    final List<TaskItem> filtered = active.isEmpty
+    Iterable<TaskItem> filtered = active.isEmpty
         ? all
-        : all
-              .where(
-                (TaskItem item) =>
-                    active.any((String label) => item.tags.contains(label)),
-              )
-              .toList();
+        : all.where(
+            (TaskItem item) =>
+                active.any((String label) => item.tags.contains(label)),
+          );
+    // 演示数据的时间都在 2026-11-01 ~ 11-04，按日期区间过滤出可感知的差异。
+    final String? dateRange = filters[TaskFilterConfig.dateRangeKey];
+    if (dateRange != null && dateRange.contains('|')) {
+      final List<String> parts = dateRange.split('|');
+      if (parts.length == 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+        final DateTime start = DateTime.parse(parts[0]);
+        final DateTime end = DateTime.parse(parts[1]).add(
+          const Duration(days: 1),
+        );
+        filtered = filtered.where((TaskItem item) {
+          final DateTime? created = DateTime.tryParse(
+            item.timeText.replaceFirst(' ', 'T'),
+          );
+          return created != null &&
+              !created.isBefore(start) &&
+              created.isBefore(end);
+        });
+      }
+    }
+    final List<TaskItem> hit = filtered.toList(growable: false);
 
     // 数据不足时循环补足，模拟后端多页数据
     final int total = pageSize * 3;
-    final List<TaskItem> source = filtered.isEmpty ? all : filtered;
+    final List<TaskItem> source = hit.isEmpty ? all : hit;
     final List<TaskItem> expanded = List<TaskItem>.generate(
       total,
       (int i) => source[i % source.length],

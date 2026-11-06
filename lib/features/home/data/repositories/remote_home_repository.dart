@@ -22,6 +22,28 @@ class RemoteHomeRepository implements HomeRepository {
   bool? get lastResponseHasMore => _lastHasMore;
 
   @override
+  Future<List<TaskItem>> search({
+    required TaskCategory category,
+    required String keyword,
+    required int page,
+    int pageSize = 10,
+  }) async {
+    final ApiResponse response = await _api.postRaw(
+      category.searchEndpoint,
+      data: <String, Object?>{
+        'keyword': keyword.trim(),
+        'startPage': page,
+        'limit': pageSize,
+      },
+    );
+    _lastHasMore = response.hasMoreItems;
+    return response.listData
+        .whereType<Map<Object?, Object?>>()
+        .map((Map<Object?, Object?> row) => mapTaskItem(category, row))
+        .toList();
+  }
+
+  @override
   Future<List<TaskItem>> fetchTasks({
     required TaskCategory category,
     required int page,
@@ -61,6 +83,16 @@ class RemoteHomeRepository implements HomeRepository {
       'startPage': page,
       'limit': pageSize,
     };
+    // 日期区间是保留字筛选：不占 condition 编码，直接拼顶层
+    // startDate/endDate（后端 `BETWEEN gmt_create`，yyyy-MM-dd）。
+    final String? dateRange = filters[TaskFilterConfig.dateRangeKey];
+    if (dateRange != null && dateRange.contains('|')) {
+      final List<String> parts = dateRange.split('|');
+      if (parts.length == 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+        body['startDate'] = parts[0];
+        body['endDate'] = parts[1];
+      }
+    }
     for (int i = 0; i < order.length; i++) {
       final String title = order[i];
       FilterGroup? group;

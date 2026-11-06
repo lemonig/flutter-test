@@ -98,6 +98,7 @@ class AppStorage {
   static const String _kDraftPrefix = 'pref.draft.';
   static const String _kAgreementAccepted = 'auth.agreement_accepted';
   static const String _kNotifyEnabled = 'pref.notify_enabled';
+  static const String _kDefaultAddress = 'pref.default_address';
 
   // ---- 会话 ----
   Future<void> saveSession(StoredSession session) =>
@@ -170,6 +171,13 @@ class AppStorage {
   Future<String?> readDraft(String key) => _store.read('$_kDraftPrefix$key');
 
   Future<void> clearDraft(String key) => _store.remove('$_kDraftPrefix$key');
+
+  /// 默认收货地址 id（C3，后端无默认字段，本地记忆）。
+  Future<void> saveDefaultAddress(int addressId) =>
+      _store.write(_kDefaultAddress, '$addressId');
+
+  Future<int> readDefaultAddress() async =>
+      int.tryParse(await _store.read(_kDefaultAddress) ?? '') ?? 0;
 
   Future<void> setNotifyEnabled(bool value) =>
       _store.write(_kNotifyEnabled, value ? '1' : '0');

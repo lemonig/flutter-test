@@ -22,6 +22,15 @@ extension TaskCategoryX on TaskCategory {
     TaskCategory.signIn => 'attend/timeline',
   };
 
+  /// 搜索接口（M2-04）：与 timeline 同构的响应，body 只有
+  /// `{keyword, startPage, limit}` —— 服务端按 `search_text`
+  /// （content+原因+办法+单元+站名+处理人）做 like 匹配。
+  String get searchEndpoint => switch (this) {
+    TaskCategory.abnormal => 'task/search',
+    TaskCategory.inspection => 'opsrecord/search',
+    TaskCategory.signIn => 'attend/search',
+  };
+
   /// 详情接口前缀（后端均为 `GET /<prefix>/{id}`）。
   String get detailEndpoint => switch (this) {
     TaskCategory.abnormal => 'task',

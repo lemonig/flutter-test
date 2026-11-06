@@ -10,6 +10,16 @@ import 'package:green_clean_ops/features/home/providers/home_providers.dart';
 import 'package:green_clean_ops/features/home/presentation/widgets/task_list_view.dart';
 
 class _FailingRepo implements HomeRepository {
+
+  @override
+  Future<List<TaskItem>> search({
+    required TaskCategory category,
+    required String keyword,
+    required int page,
+    int pageSize = 10,
+  }) async => const <TaskItem>[];
+
+
   int calls = 0;
 
   @override

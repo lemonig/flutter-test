@@ -52,6 +52,9 @@ class FilterGroup {
 /// fallback；真实环境下由 `filterConfigProvider` 从 `GET meta/basic` 动态拉取，
 /// 后端新增条件项（如新增省份）无需发版。
 class TaskFilterConfig {
+  /// 日期区间在 filters map 里的保留 key；值格式 `start|end`（yyyy-MM-dd）。
+  static const String dateRangeKey = '日期区间';
+
   const TaskFilterConfig._();
 
   static const String defaultOption = '全部';

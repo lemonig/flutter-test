@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/utils/toast.dart';
 import '../../auth/data/models/app_user.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../message/providers/message_providers.dart';
@@ -118,7 +117,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               role: user?.role.label,
               onNotificationTap: () => context.go('/messages'),
               onCreateTap: () => showQuickCreateSheet(context),
-              onSearchTap: () => showToast(context, '搜索功能开发中'),
+              onSearchTap: () => context.push('/search'),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),

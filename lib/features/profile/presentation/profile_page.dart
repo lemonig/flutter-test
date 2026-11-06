@@ -156,10 +156,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       const Divider(indent: 60, endIndent: 16),
                       _SettingTile(
                         icon: LucideIcons.mapPin,
-                        title: '地址管理',
-                        subtitle: '常驻站点与签到范围',
-                        // 先进地图选点页：M0-07 的地图能力已可直接用，地址列表 CRUD 随后补
-                        onTap: () => context.push('/map-picker'),
+                        title: '收货地址',
+                        subtitle: '申请试剂 / 配件的收货信息',
+                        onTap: () => context.push('/addresses'),
                       ),
                       const Divider(indent: 60, endIndent: 16),
                       _SettingTile(

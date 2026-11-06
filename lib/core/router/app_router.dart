@@ -14,6 +14,8 @@ import '../../features/home/data/models/task_item.dart';
 import '../../features/home/presentation/create_attend_page.dart';
 import '../../features/home/presentation/create_task_page.dart';
 import '../../features/home/presentation/home_page.dart';
+import '../../features/home/presentation/address_list_page.dart';
+import '../../features/home/presentation/search_page.dart';
 import '../../features/home/presentation/submit_inspection_page.dart';
 import '../../features/home/presentation/task_detail_page.dart';
 import '../../features/message/data/models/message_models.dart';
@@ -159,6 +161,18 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
             orElse: () => DirectoryKind.station,
           ),
         ),
+      ),
+      GoRoute(
+        path: '/addresses',
+        name: 'addresses',
+        builder: (BuildContext context, GoRouterState state) =>
+            const AddressListPage(),
+      ),
+      GoRoute(
+        path: '/search',
+        name: 'search',
+        builder: (BuildContext context, GoRouterState state) =>
+            const SearchPage(),
       ),
       GoRoute(
         path: '/workbench/apply-records',

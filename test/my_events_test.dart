@@ -22,6 +22,16 @@ TaskItem _item(String id, String station, {List<String> tags = const <String>[]}
     );
 
 class _FakeHomeRepository implements HomeRepository {
+
+  @override
+  Future<List<TaskItem>> search({
+    required TaskCategory category,
+    required String keyword,
+    required int page,
+    int pageSize = 10,
+  }) async => const <TaskItem>[];
+
+
   _FakeHomeRepository({this.fail = false});
 
   bool fail;
