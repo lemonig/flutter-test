@@ -33,8 +33,8 @@ class TaskAction {
 
 /// 详情页可执行的动作清单（顺序即展示顺序）。
 ///
-/// `transfer` / `edit` 至今没有实现入口（需要人员选择器与编辑表单），
-/// 这里统一标记为「待接入」，不再各自写死文案。
+/// `transfer` 已接入人员选择弹层（C7）；`edit` 至今没有实现入口
+/// （需要编辑表单），这里仍标记为「待接入」。
 List<TaskAction> taskActionsFor(TaskDetail task) {
   final TaskAuth auth = task.auth;
   return <TaskAction>[
@@ -62,8 +62,10 @@ List<TaskAction> taskActionsFor(TaskDetail task) {
     TaskAction(
       key: 'transfer',
       label: '转交任务',
-      enabled: false,
-      reason: auth.enableToTransfer ? '待接入人员选择' : _transferReason(task),
+      enabled: auth.enableToTransfer,
+      reason: auth.enableToTransfer
+          ? '选择一位在职运维人员接收该任务'
+          : _transferReason(task),
     ),
     TaskAction(
       key: 'edit',
@@ -117,5 +119,7 @@ String _terminateReason(TaskDetail task) {
 
 String _transferReason(TaskDetail task) {
   if (task.state.isTerminal) return '任务已结束';
-  return '当前账号不可转交该任务';
+  // 服务端只允许「待处理 + 最初执行人 + 未转交过」三个条件同时成立。
+  if (task.state != TaskState.todo) return '仅待处理的任务可转交';
+  return '仅任务的最初执行人可转交，且只能转交一次';
 }

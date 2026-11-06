@@ -118,6 +118,10 @@ class _FakeRepo implements TaskDetailRepository {
   @override
   Future<void> terminate(String id, String description) async =>
       calls.add('terminate:$description');
+
+  @override
+  Future<void> transfer(String id, int toUserId, {bool force = false}) async =>
+      calls.add('transfer:$id:$toUserId');
 }
 
 Widget _wrap(TaskDetailRepository repo, {String taskId = '68081'}) =>

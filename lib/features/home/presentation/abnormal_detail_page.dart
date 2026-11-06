@@ -22,6 +22,7 @@ import '../providers/home_providers.dart';
 import '../providers/task_detail_providers.dart';
 import 'handle_task_page.dart';
 import 'widgets/comment_sheet.dart';
+import 'widgets/transfer_sheet.dart';
 
 /// 异常详情（M3-02）+ 状态流转（M3-05）。
 ///
@@ -1265,6 +1266,9 @@ Future<void> _showMoreSheet(
                       Navigator.of(sheetContext).pop();
                       if (action.key == 'terminate') {
                         await _terminate(context, ref, task);
+                      }
+                      if (action.key == 'transfer' && context.mounted) {
+                        await showTransferSheet(context, ref: ref, task: task);
                       }
                     },
             ),
