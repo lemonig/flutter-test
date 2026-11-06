@@ -22,6 +22,18 @@ abstract class HomeRepository {
     int pageSize = 10,
   });
 
+  /// 按省 + 时间区间的 timeline（统计详情页用）：
+  /// 省份直接传 region_key（不走 label 翻译），
+  /// 异常在 condition4、巡检在 condition3（对齐后端 conditionOrder）。
+  Future<List<TaskItem>> fetchTasksByRegion({
+    required TaskCategory category,
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    required int page,
+    int pageSize = 10,
+  });
+
   /// 上一次请求后服务端报告的「是否还有下一页」。
   /// 真实后端在 `additional_data.more_items_in_collection` 返回精确值；
   /// 返回 null 的数据源（如 Mock）由调用方按返回条数推断。
@@ -75,6 +87,43 @@ class MockHomeRepository implements HomeRepository {
     if (start >= expanded.length) return const [];
     final int end = (start + pageSize).clamp(0, expanded.length);
     return expanded.sublist(start, end);
+  }
+
+  @override
+  Future<List<TaskItem>> fetchTasksByRegion({
+    required TaskCategory category,
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    required int page,
+    int pageSize = 10,
+  }) async {
+    await Future<void>.delayed(delay);
+    final List<TaskItem> all = switch (category) {
+      TaskCategory.abnormal => _abnormalTasks,
+      TaskCategory.inspection => _inspectionTasks,
+      TaskCategory.signIn => _signInTasks,
+    };
+    final DateTime start = DateTime.parse(startDate);
+    final DateTime end = DateTime.parse(endDate).add(const Duration(days: 1));
+    final List<TaskItem> matched = all.where((TaskItem item) {
+      final DateTime? created = DateTime.tryParse(
+        item.timeText.replaceFirst(' ', 'T'),
+      );
+      return created != null &&
+          !created.isBefore(start) &&
+          created.isBefore(end);
+    }).toList();
+    final int total = matched.isEmpty
+        ? 0
+        : (matched.length * 3).clamp(pageSize, pageSize * 3);
+    final List<TaskItem> expanded = List<TaskItem>.generate(
+      total,
+      (int i) => matched[i % matched.length],
+    );
+    final int pos = (page - 1) * pageSize;
+    if (pos >= expanded.length) return const [];
+    return expanded.sublist(pos, (pos + pageSize).clamp(0, expanded.length));
   }
 
   @override

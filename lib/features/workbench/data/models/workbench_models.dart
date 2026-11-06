@@ -849,6 +849,75 @@ class DirectoryStation {
   }
 }
 
+/// 站点详情（`GET station/{id}/profile`，对照 iOS StationProfileModel）。
+///
+/// 实测核心字段：站名/地区 + 三类业务计数 + 管理员信息 + 站点属性；
+/// 站点属性字符串（类型/状态等）后端给的是数字编码，iOS 端自己翻译，
+/// 这里只展示拿得到文本的 subset，编码类字段不进 UI。
+class StationProfile {
+  const StationProfile({
+    required this.id,
+    this.name = '',
+    this.region = '',
+    this.city = '',
+    this.district = '',
+    this.address = '',
+    this.dataManager = '',
+    this.assistant = '',
+    this.ops = '',
+    this.taskCount = 0,
+    this.opsRecordCount = 0,
+    this.attendCount = 0,
+    this.stationTypeStr = '',
+    this.buildDate = '',
+    this.mn = '',
+  });
+
+  final int id;
+  final String name;
+  final String region;
+  final String city;
+  final String district;
+  final String address;
+  final String dataManager;
+  final String assistant;
+  final String ops;
+  final int taskCount;
+  final int opsRecordCount;
+  final int attendCount;
+  final String stationTypeStr;
+  final String buildDate;
+  final String mn;
+
+  String get regionText => <String>[
+    region,
+    city,
+    district,
+  ].where((String s) => s.isNotEmpty).join(' ');
+
+  static StationProfile fromJson(Object? raw) {
+    if (raw is! Map) return const StationProfile(id: 0);
+    String t(Object? v) => (v ?? '').toString();
+    int n(Object? v) => v is int ? v : int.tryParse('$v') ?? 0;
+    return StationProfile(
+      id: n(raw['id']),
+      name: t(raw['name']),
+      region: t(raw['region']),
+      city: t(raw['city']),
+      district: t(raw['district']),
+      address: t(raw['address']),
+      dataManager: t(raw['dataManager']),
+      assistant: t(raw['assistant']),
+      ops: t(raw['ops']),
+      taskCount: n(raw['taskCount']),
+      opsRecordCount: n(raw['opsRecordCount']),
+      attendCount: n(raw['attendCount']),
+      buildDate: t(raw['buildDate']),
+      mn: t(raw['mn']),
+    );
+  }
+}
+
 /// 驻点资料（`GET agency/list`，Agency）。
 class Agency {
   const Agency({

@@ -29,6 +29,16 @@ abstract class ReportRepository {
   /// 该车上次上报的里程表读数（没有记录时为 0）。
   Future<double> fetchPreviousMileage(int carId);
 
+  /// 按省 + 时间区间的里程上报流水（统计详情用，
+  /// `POST car/regionSearch`：condition2 = region_key）。
+  Future<ReportPage> fetchMileageReports({
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    int page = 1,
+    int pageSize = 10,
+  });
+
   Future<void> submit(ReportDraft draft);
 }
 
@@ -120,6 +130,37 @@ class RemoteReportRepository implements ReportRepository {
   Future<ReportRecord> fetchReportDetail(ReportKind kind, int id) async {
     final ApiResponse response = await _api.getRaw('${kind.path}/$id');
     return ReportRecord.fromJson(response.mapData, kind);
+  }
+
+  @override
+  Future<ReportPage> fetchMileageReports({
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    final ApiResponse response = await _api.postRaw(
+      'car/regionSearch',
+      data: <String, Object?>{
+        'startDate': startDate,
+        'endDate': endDate,
+        'condition1': '1',
+        'condition2': regionKey,
+        'startPage': page,
+        'limit': pageSize,
+      },
+    );
+    return ReportPage(
+      items: response.listData
+          .whereType<Map<Object?, Object?>>()
+          .map(
+            (Map<Object?, Object?> item) =>
+                ReportRecord.fromJson(item, ReportKind.mileage),
+          )
+          .toList(),
+      hasMore: response.hasMoreItems ?? false,
+    );
   }
 
   @override
@@ -324,6 +365,35 @@ class MockReportRepository implements ReportRepository {
       '记录不存在',
       kind: ApiErrorKind.business,
       code: 'NOT_FOUND',
+    );
+  }
+
+  @override
+  Future<ReportPage> fetchMileageReports({
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    await Future<void>.delayed(delay);
+    final DateTime start = DateTime.parse(startDate);
+    final DateTime end = DateTime.parse(endDate).add(const Duration(days: 1));
+    final List<ReportRecord> matched = _store[ReportKind.mileage]!
+        .where((ReportRecord record) {
+          final DateTime? created = DateTime.tryParse(
+            record.gmtCreate.replaceFirst(' ', 'T'),
+          );
+          return created == null ||
+              (!created.isBefore(start) && created.isBefore(end));
+        })
+        .toList();
+    final int pos = (page - 1) * pageSize;
+    return ReportPage(
+      items: pos >= matched.length
+          ? const <ReportRecord>[]
+          : matched.sublist(pos, (pos + pageSize).clamp(0, matched.length)),
+      hasMore: pos + pageSize < matched.length,
     );
   }
 

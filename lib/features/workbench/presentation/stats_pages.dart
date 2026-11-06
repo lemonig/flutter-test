@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_response.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../data/models/workbench_models.dart';
+import 'detail_pages.dart';
 import '../providers/workbench_providers.dart';
 
 /// 统计三页（M7-11，对照 iOS Statistical 模块）：异常 / 巡检 / 里程。
@@ -31,6 +32,34 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   StatPeriod _period = StatPeriod.day;
 
   String get _providerKey => '${widget.kind.name}:${_period.name}';
+
+  void _openDetail(Object stat) {
+    final (String, String) range = _period.range(DateTime.now());
+    final String regionKey = switch (stat) {
+      AbnormalStat s => s.regionKey,
+      InspectionStat s => s.regionKey,
+      MileageStat s => s.regionKey,
+      _ => '',
+    };
+    final String regionTitle = switch (stat) {
+      AbnormalStat s => s.title,
+      InspectionStat s => s.title,
+      MileageStat s => s.region,
+      _ => '',
+    };
+    if (regionKey.isEmpty || regionTitle.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => StatDetailPage(
+          kind: widget.kind,
+          regionKey: regionKey,
+          regionTitle: regionTitle,
+          startDate: range.$1,
+          endDate: range.$2,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,12 +123,15 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                         switch (widget.kind) {
                       StatsKind.abnormal => _AbnormalCard(
                         stat: list[index] as AbnormalStat,
+                        onTap: () => _openDetail(list[index]),
                       ),
                       StatsKind.inspection => _InspectionCard(
                         stat: list[index] as InspectionStat,
+                        onTap: () => _openDetail(list[index]),
                       ),
                       StatsKind.mileage => _MileageCard(
                         stat: list[index] as MileageStat,
+                        onTap: () => _openDetail(list[index]),
                       ),
                     },
                   ),
@@ -119,19 +151,24 @@ class _StatCard extends StatelessWidget {
     required this.totalLabel,
     required this.totalTone,
     required this.cells,
+    required this.onTap,
   });
 
   final String title;
   final String totalLabel;
   final Color totalTone;
   final List<(String, int)> cells;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,6 +202,7 @@ class _StatCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
         ),
       ),
     );
@@ -200,9 +238,10 @@ class _Cell extends StatelessWidget {
 }
 
 class _AbnormalCard extends StatelessWidget {
-  const _AbnormalCard({required this.stat});
+  const _AbnormalCard({required this.stat, required this.onTap});
 
   final AbnormalStat stat;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +249,7 @@ class _AbnormalCard extends StatelessWidget {
       title: stat.title,
       totalLabel: '共 ${stat.total} 单',
       totalTone: AppColors.brand,
+      onTap: onTap,
       cells: <(String, int)>[
         ('待处理', stat.todo),
         ('处理中', stat.doing),
@@ -224,9 +264,10 @@ class _AbnormalCard extends StatelessWidget {
 }
 
 class _InspectionCard extends StatelessWidget {
-  const _InspectionCard({required this.stat});
+  const _InspectionCard({required this.stat, required this.onTap});
 
   final InspectionStat stat;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -234,6 +275,7 @@ class _InspectionCard extends StatelessWidget {
       title: stat.title,
       totalLabel: '共 ${stat.total} 次',
       totalTone: AppColors.success,
+      onTap: onTap,
       cells: <(String, int)>[
         ('未完成', stat.todo),
         ('已完成', stat.done),
@@ -245,9 +287,10 @@ class _InspectionCard extends StatelessWidget {
 }
 
 class _MileageCard extends StatelessWidget {
-  const _MileageCard({required this.stat});
+  const _MileageCard({required this.stat, required this.onTap});
 
   final MileageStat stat;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -255,6 +298,7 @@ class _MileageCard extends StatelessWidget {
       title: stat.region,
       totalLabel: '车辆 ${stat.carNumber} 台',
       totalTone: AppColors.warning,
+      onTap: onTap,
       cells: <(String, int)>[
         ('已上报', stat.reported),
         ('未上报', stat.noReported),

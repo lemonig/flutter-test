@@ -16,6 +16,21 @@ import 'package:flutter/services.dart';
 /// Key 在 `android/app/src/main/AndroidManifest.xml` 的
 /// `com.amap.api.v2.apikey`；高德按「包名 + 签名 SHA1」校验，
 /// 不匹配时地图只是**白屏**，不抛异常 —— 错误只在 logcat 里。
+/// 地图上的一个业务标记；[tag] 原样透传（如车辆 id），点击时回传。
+class AmapMarker {
+  const AmapMarker({
+    required this.latitude,
+    required this.longitude,
+    this.title = '',
+    this.tag = '',
+  });
+
+  final double latitude;
+  final double longitude;
+  final String title;
+  final String tag;
+}
+
 class AmapView extends StatefulWidget {
   const AmapView({
     super.key,
@@ -23,8 +38,10 @@ class AmapView extends StatefulWidget {
     this.longitude = 120.1551,
     this.zoom = 15,
     this.showCenterMarker = true,
+    this.markers = const <AmapMarker>[],
     this.onCameraIdle,
     this.onMapClick,
+    this.onMarkerClick,
     this.onCreated,
     this.onUnavailable,
   });
@@ -39,11 +56,17 @@ class AmapView extends StatefulWidget {
   /// 是否在中心点放一个标记（选点页用准星，关掉这个）。
   final bool showCenterMarker;
 
+  /// 批量业务标记（车辆地图等）；非空时原生注册点击回传。
+  final List<AmapMarker> markers;
+
   /// 地图拖动停下后的中心点。
   final void Function(double latitude, double longitude)? onCameraIdle;
 
   /// 点击地图某处的坐标。
   final void Function(double latitude, double longitude)? onMapClick;
+
+  /// 点击 [markers] 里的标记，回传对应 tag。
+  final void Function(String tag)? onMarkerClick;
 
   /// 地图原生视图创建完成，可用于后续调用 [AmapViewController]。
   final void Function(AmapViewController controller)? onCreated;
@@ -88,6 +111,10 @@ class _AmapViewState extends State<AmapView> {
             (args['latitude'] as num?)?.toDouble() ?? 0,
             (args['longitude'] as num?)?.toDouble() ?? 0,
           );
+        case 'onMarkerClick':
+          final Map<Object?, Object?> args =
+              Map<Object?, Object?>.from(call.arguments as Map? ?? const <Object?, Object?>{});
+          widget.onMarkerClick?.call('${args['tag'] ?? ''}');
       }
       return null;
     });
@@ -132,6 +159,15 @@ class _AmapViewState extends State<AmapView> {
             'longitude': widget.longitude,
             'zoom': widget.zoom,
             'showCenterMarker': widget.showCenterMarker,
+            'markers': <Map<String, Object?>>[
+              for (final AmapMarker marker in widget.markers)
+                <String, Object?>{
+                  'latitude': marker.latitude,
+                  'longitude': marker.longitude,
+                  'title': marker.title,
+                  'tag': marker.tag,
+                },
+            ],
           },
           creationParamsCodec: const StandardMessageCodec(),
           onFocus: () => params.onFocusChanged(true),

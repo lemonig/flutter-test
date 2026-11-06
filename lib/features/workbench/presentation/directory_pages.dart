@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../core/amap/amap_view.dart';
 import '../../../core/network/api_response.dart';
 import '../../../shared/utils/backend_time.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../data/models/workbench_models.dart';
 import '../providers/workbench_providers.dart';
+import 'detail_pages.dart';
+import 'car_map_page.dart';
+import '../../../features/profile/presentation/profile_detail_page.dart';
 
 /// 资料库（M7-12，对照 iOS Data 模块）：站点 / 驻点 / 用户 / 车辆。
 ///
@@ -47,7 +49,23 @@ class _DirectoryPageState extends ConsumerState<DirectoryPage> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surfaceContainerLowest,
-      appBar: AppBar(title: Text(widget.kind.label)),
+      appBar: AppBar(
+        title: Text(widget.kind.label),
+        // 车辆资料：全部车辆汇总到一张地图（对照 iOS CarInfoLocationController）。
+        // 列表内嵌地图在长列表里有明显的性能与遮挡问题，收敛成单一地图页。
+        actions: <Widget>[
+          if (widget.kind == DirectoryKind.car)
+            IconButton(
+              tooltip: '全部车辆地图',
+              icon: const Icon(LucideIcons.map, size: 20),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) => const CarMapPage(),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -178,6 +196,13 @@ class _StationTile extends StatelessWidget {
               .where((String s) => s.isNotEmpty)
               .join(' · '),
         ),
+        trailing: const Icon(LucideIcons.chevronRight, size: 16),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (BuildContext context) =>
+                StationDetailPage(stationId: station.id),
+          ),
+        ),
       ),
     );
   }
@@ -277,6 +302,15 @@ class _UserTile extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         leading: AppAvatar(label: user.nickname, size: 40),
         title: Text(user.nickname),
+        trailing: const Icon(LucideIcons.chevronRight, size: 16),
+        onTap: user.id == null
+            ? null
+            : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) =>
+                      ProfileDetailPage(userId: user.id),
+                ),
+              ),
       ),
     );
   }
@@ -364,25 +398,8 @@ class _CarTile extends StatelessWidget {
                 ),
               ),
             ],
-            // 高德 Key 改绑（2026-11-06）后接入的地图卡：只读展示，
-            // 拖动 / 缩放可用但不响应点击；0,0 视为无定位不渲染。
-            if (_hasFix(item))
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    height: 180,
-                    child: AmapView(
-                      latitude: double.tryParse(item.lat) ?? 0,
-                      longitude: double.tryParse(item.lng) ?? 0,
-                      zoom: 14,
-                      showCenterMarker: true,
-                      onMapClick: (_, _) {},
-                    ),
-                  ),
-                ),
-              ),
+            // 位置在「全部车辆地图」页统一看（AppBar 地图入口），
+            // 列表行只保留文字信息 —— 每行一张地图在长列表里滚动掉帧严重。
           ],
         ),
       ),

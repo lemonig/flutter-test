@@ -33,7 +33,7 @@ class _FakeProfileRepository implements ProfileRepository {
   int updateCalls = 0;
 
   @override
-  Future<UserProfile> fetchProfile() async {
+  Future<UserProfile> fetchProfile({int? userId}) async {
     if (fail) {
       throw const AppException('资料服务不可用', kind: ApiErrorKind.network);
     }

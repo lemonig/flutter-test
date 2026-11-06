@@ -345,7 +345,7 @@ class _WorkStatsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
     final UserProfile? profile = ref
-        .watch(userProfileProvider)
+        .watch(userProfileProvider(''))
         .asData
         ?.value;
     String value(int? count) => count == null ? '—' : '$count';

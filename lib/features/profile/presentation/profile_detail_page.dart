@@ -22,11 +22,14 @@ import '../data/repositories/profile_repository.dart';
 /// 「联系管理员修改」的说明，而不是放个输入框让用户白填一遍。
 ///
 /// 头像换完要顺手做两件事：
-/// 1. `ref.invalidate(userProfileProvider)` 刷新本页；
+/// 1. `ref.invalidate(userProfileProvider(widget.userId?.toString() ?? ''))` 刷新本页；
 /// 2. `authProvider.notifier.refreshProfile()` 重新拉 `meta/auth`，
 ///    否则「我的」页头部头像还是旧的（两处数据源不同）。
 class ProfileDetailPage extends ConsumerStatefulWidget {
-  const ProfileDetailPage({super.key});
+  const ProfileDetailPage({super.key, this.userId});
+
+  /// 传了就看别人（只读，来自用户资料库）；不传看自己（可改头像）。
+  final int? userId;
 
   @override
   ConsumerState<ProfileDetailPage> createState() => _ProfileDetailPageState();
@@ -38,12 +41,12 @@ class _ProfileDetailPageState extends ConsumerState<ProfileDetailPage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final AsyncValue<UserProfile> async = ref.watch(userProfileProvider);
+    final AsyncValue<UserProfile> async = ref.watch(userProfileProvider(widget.userId?.toString() ?? ''));
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surfaceContainerLow,
       appBar: AppBar(
-        title: const Text('个人资料'),
+        title: Text(widget.userId == null ? '个人资料' : '用户资料'),
         centerTitle: true,
         backgroundColor: theme.colorScheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
@@ -55,20 +58,20 @@ class _ProfileDetailPageState extends ConsumerState<ProfileDetailPage> {
           title: '资料加载失败',
           message: error is AppException ? error.userMessage : '请稍后重试',
           actionLabel: '重新加载',
-          onAction: () => ref.invalidate(userProfileProvider),
+          onAction: () => ref.invalidate(userProfileProvider(widget.userId?.toString() ?? '')),
         ),
         data: (UserProfile profile) => RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(userProfileProvider);
-            await ref.read(userProfileProvider.future);
+            ref.invalidate(userProfileProvider(widget.userId?.toString() ?? ''));
+            await ref.read(userProfileProvider(widget.userId?.toString() ?? '').future);
           },
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
             children: <Widget>[
               _AvatarCard(
                 profile: profile,
-                uploading: _uploading,
-                onPick: _pickAvatar,
+                uploading: _uploading && widget.userId == null,
+                onPick: widget.userId == null ? _pickAvatar : null,
               ),
               const SizedBox(height: 16),
               const SectionHeader(title: '基本信息'),
@@ -171,7 +174,7 @@ class _ProfileDetailPageState extends ConsumerState<ProfileDetailPage> {
     setState(() => _uploading = true);
     try {
       await ref.read(profileRepositoryProvider).updateAvatar(image);
-      ref.invalidate(userProfileProvider);
+      ref.invalidate(userProfileProvider(widget.userId?.toString() ?? ''));
       // 同步登录态里的头像，「我的」页头部与其它用到头像的地方才会更新
       await ref.read(authProvider.notifier).refreshProfile();
       if (mounted) showToast(context, '头像已更新');
@@ -194,7 +197,7 @@ class _AvatarCard extends StatelessWidget {
 
   final UserProfile profile;
   final bool uploading;
-  final VoidCallback onPick;
+  final VoidCallback? onPick;
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +210,7 @@ class _AvatarCard extends StatelessWidget {
         child: Column(
           children: <Widget>[
             GestureDetector(
-              onTap: uploading ? null : onPick,
+              onTap: (uploading || onPick == null) ? null : onPick,
               child: Stack(
                 children: <Widget>[
                   ProfileAvatar(
@@ -215,6 +218,7 @@ class _AvatarCard extends StatelessWidget {
                     label: profile.displayName,
                     size: 84,
                   ),
+                  if (onPick != null)
                   Positioned(
                     right: 0,
                     bottom: 0,
@@ -256,7 +260,11 @@ class _AvatarCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              uploading ? '正在上传…' : '点击头像更换',
+              uploading
+              ? '正在上传…'
+              : onPick == null
+              ? '只可查看'
+              : '点击头像更换',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

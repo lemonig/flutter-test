@@ -67,6 +67,38 @@ class RemoteHomeRepository implements HomeRepository {
         .toList();
   }
 
+  @override
+  Future<List<TaskItem>> fetchTasksByRegion({
+    required TaskCategory category,
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    required int page,
+    int pageSize = 10,
+  }) async {
+    // 省份 condition 的位置：异常 4 个 condition 里省份在第 4 位，
+    // 巡检 3 个里在第 3 位；其余 condition 显式传 "1"（不过滤）。
+    final int regionIndex = category == TaskCategory.abnormal ? 4 : 3;
+    final int totalConditions = category == TaskCategory.abnormal ? 4 : 3;
+    final Map<String, Object?> body = <String, Object?>{
+      'startPage': page,
+      'limit': pageSize,
+      'startDate': startDate,
+      'endDate': endDate,
+      for (int i = 1; i <= totalConditions; i++)
+        'condition$i': i == regionIndex ? regionKey : '1',
+    };
+    final ApiResponse response = await _api.postRaw(
+      category.endpoint,
+      data: body,
+    );
+    _lastHasMore = response.hasMoreItems;
+    return response.listData
+        .whereType<Map<Object?, Object?>>()
+        .map((Map<Object?, Object?> row) => mapTaskItem(category, row))
+        .toList();
+  }
+
   /// 单独暴露便于单测：把 UI 选中的中文 label 翻译成后端 condition 编码。
   static Map<String, Object?> buildTimelineBody({
     required TaskCategory category,

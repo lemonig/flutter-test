@@ -12,6 +12,16 @@ import 'package:green_clean_ops/features/home/presentation/widgets/task_list_vie
 class _FailingRepo implements HomeRepository {
 
   @override
+  Future<List<TaskItem>> fetchTasksByRegion({
+    required TaskCategory category,
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    required int page,
+    int pageSize = 10,
+  }) async => const <TaskItem>[];
+
+  @override
   Future<List<TaskItem>> search({
     required TaskCategory category,
     required String keyword,

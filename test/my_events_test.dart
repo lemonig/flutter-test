@@ -24,6 +24,16 @@ TaskItem _item(String id, String station, {List<String> tags = const <String>[]}
 class _FakeHomeRepository implements HomeRepository {
 
   @override
+  Future<List<TaskItem>> fetchTasksByRegion({
+    required TaskCategory category,
+    required String regionKey,
+    required String startDate,
+    required String endDate,
+    required int page,
+    int pageSize = 10,
+  }) async => const <TaskItem>[];
+
+  @override
   Future<List<TaskItem>> search({
     required TaskCategory category,
     required String keyword,

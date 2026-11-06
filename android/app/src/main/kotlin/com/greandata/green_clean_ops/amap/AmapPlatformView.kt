@@ -84,6 +84,31 @@ class AmapPlatformView(
                     )
                 }
 
+                // 批量标记（车辆全量地图等）：snippet 携带业务 tag（如车辆 id），
+                // 点击时原样回传给 Dart，由页面决定展示什么。
+                val markers = params["markers"] as? List<*>
+                if (!markers.isNullOrEmpty()) {
+                    amap.setOnMarkerClickListener { marker ->
+                        channel.invokeMethod(
+                            "onMarkerClick",
+                            mapOf("tag" to (marker.snippet ?: "")),
+                        )
+                        true
+                    }
+                    for (item in markers) {
+                        val mark = item as? Map<*, *> ?: continue
+                        val mLat = (mark["latitude"] as? Number)?.toDouble() ?: continue
+                        val mLng = (mark["longitude"] as? Number)?.toDouble() ?: continue
+                        amap.addMarker(
+                            MarkerOptions()
+                                .position(LatLng(mLat, mLng))
+                                .title(mark["title"] as? String ?: "")
+                                .snippet(mark["tag"]?.toString() ?: "")
+                                .draggable(false),
+                        )
+                    }
+                }
+
                 // 中心坐标变化：拖动地图时把中心点坐标回传 Dart，
                 // 选点页靠它拿到「准星位置」的经纬度。
                 amap.setOnCameraChangeListener(object : AMap.OnCameraChangeListener {

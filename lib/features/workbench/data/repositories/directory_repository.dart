@@ -19,6 +19,9 @@ import '../models/workbench_models.dart';
 abstract class DirectoryRepository {
   Future<List<DirectoryStation>> fetchStations({String keyword = ''});
 
+  /// 站点详情（`GET station/{id}/profile`，对照 iOS StationHome 模块）。
+  Future<StationProfile> fetchStationProfile(int stationId);
+
   Future<List<Agency>> fetchAgencies({String keyword = ''});
 
   Future<List<TaskPerson>> fetchUsers({String keyword = ''});
@@ -39,6 +42,12 @@ class RemoteDirectoryRepository implements DirectoryRepository {
         .map(DirectoryStation.fromJson)
         .toList();
     return _filter(stations, keyword, (DirectoryStation s) => s.name);
+  }
+
+  @override
+  Future<StationProfile> fetchStationProfile(int stationId) async {
+    final ApiResponse response = await _api.getRaw('station/$stationId/profile');
+    return StationProfile.fromJson(response.mapData);
   }
 
   @override
@@ -215,6 +224,30 @@ class MockDirectoryRepository implements DirectoryRepository {
   Future<List<DirectoryStation>> fetchStations({String keyword = ''}) async {
     await Future<void>.delayed(delay);
     return _filter(_stations, keyword, (DirectoryStation s) => s.name);
+  }
+
+  @override
+  Future<StationProfile> fetchStationProfile(int stationId) async {
+    await Future<void>.delayed(delay);
+    for (final DirectoryStation station in _stations) {
+      if (station.id == stationId) {
+        return StationProfile(
+          id: station.id,
+          name: station.name,
+          region: station.region,
+          city: station.city,
+          address: '演示地址：${station.city}详址数据',
+          dataManager: '卜幸杰',
+          assistant: '张子龙',
+          taskCount: 93,
+          opsRecordCount: 211,
+          attendCount: 6,
+          stationTypeStr: '水质自动监测站',
+          buildDate: '2021-06-01',
+        );
+      }
+    }
+    throw AppException('站点不存在', kind: ApiErrorKind.business);
   }
 
   @override
