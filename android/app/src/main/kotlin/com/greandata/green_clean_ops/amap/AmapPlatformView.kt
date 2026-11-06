@@ -5,7 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import com.amap.api.maps.AMap
 import com.amap.api.maps.CameraUpdateFactory
-import com.amap.api.maps.MapView
+import com.amap.api.maps.TextureMapView
 import com.amap.api.maps.MapsInitializer
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.MarkerOptions
@@ -19,7 +19,10 @@ import io.flutter.plugin.platform.PlatformView
  *
  * 官方 `amap_flutter_map` 3.0.0 的 Android 工程是 AGP 3.5 写法
  * （`compileSdkVersion 29`、`jcenter()`），与 AGP 9 不兼容，
- * 所以地图渲染由这里直接承载原生 `MapView`，Dart 侧用 `AndroidView` 挂载。
+ * 所以地图渲染由这里直接承载原生 `TextureMapView`，Dart 侧用 `AndroidView` 挂载。
+ *
+ * 用 TextureMapView 而非 MapView（SurfaceView）：SurfaceView 是独立
+ * surface，截屏合成拿不到内容，滚动列表里多张地图还会穿透出黑块。
  *
  * Key 来自 AndroidManifest 的 `com.amap.api.v2.apikey`；
  * 高德按「包名 + 签名 SHA1」校验，Key 不匹配时地图只是白屏、**不抛异常**，
@@ -37,17 +40,17 @@ class AmapPlatformView(
 
     private val channel: MethodChannel = MethodChannel(messenger, "green_clean_ops/amap_$viewId")
     private val container: ViewGroup = android.widget.FrameLayout(context)
-    private var mapView: MapView? = null
+    private var mapView: TextureMapView? = null
     private var aMap: AMap? = null
 
     init {
         try {
-            // 高德 9.x 隐私合规：必须先声明已取得用户同意，否则 MapView 创建直接抛异常。
+            // 高德 9.x 隐私合规：必须先声明已取得用户同意，否则地图创建直接抛异常。
             // 这里的 true 对应「隐私政策已弹给用户且用户同意」，与 App 内隐私政策页一致。
             MapsInitializer.updatePrivacyShow(context, true, true)
             MapsInitializer.updatePrivacyAgree(context, true)
 
-            val map = MapView(context)
+            val map = TextureMapView(context)
             container.addView(
                 map,
                 ViewGroup.LayoutParams(
@@ -58,6 +61,10 @@ class AmapPlatformView(
             map.onCreate(null)
             mapView = map
             AmapLifecycle.attach(map)
+            // PlatformView 总是在 Activity 已 resumed 之后才被创建，
+            // MainActivity.onResume 的转发不会再触发，必须在这里补一次，
+            // 否则地图引擎不开始渲染（表现就是整块白屏）。
+            map.onResume()
 
             aMap = map.map?.also { amap ->
                 amap.uiSettings.isZoomControlsEnabled = false
@@ -141,7 +148,7 @@ class AmapPlatformView(
 
     override fun dispose() {
         channel.setMethodCallHandler(null)
-        // MapView 的生命周期必须手动释放，否则多次进出页面会泄漏并卡帧。
+        // 地图的生命周期必须手动释放，否则多次进出页面会泄漏并卡帧。
         mapView?.let {
             AmapLifecycle.detach(it)
             it.onDestroy()

@@ -50,7 +50,7 @@
              与原工程 com.xiyoukeji.operations 不同，能否复用以真机实测为准。 -->
         <meta-data
             android:name="com.amap.api.v2.apikey"
-            android:value="f6457d0b866d0dc5e93e7f95f4a9bdc5"/>
+            android:value="8d3f5d8cfd5aaeca927a4b99dd244011"/>
 
         <!-- 个推（M6-04）：核心服务必须单独进程，否则长连接不建立 -->
         <service
