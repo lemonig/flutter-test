@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 /// 高德地图承载组件（M0-07）。
@@ -103,16 +105,42 @@ class _AmapViewState extends State<AmapView> {
   Widget build(BuildContext context) {
     if (!_supported) return const SizedBox.expand();
 
-    return AndroidView(
+    // 用 hybrid composition（initExpensiveAndroidView）而不是 AndroidView
+    // 默认的 TLHC 模式：TLHC 的 SurfaceProducer 合成在部分模拟器
+    // （雷电 / host-GL 直通）上会把地图纹理丢在合成外 —— 引擎在渲染、
+    // 瓦片已落盘、手势正常，但屏幕与截屏都是白块
+    // （logcat 特征：FrameEvents updateAcquireFence Did not find frame）。
+    // HC 模式走系统视图层级合成，代价是性能略差，正确性优先。
+    return PlatformViewLink(
       viewType: 'green_clean_ops/amap',
-      creationParams: <String, Object?>{
-        'latitude': widget.latitude,
-        'longitude': widget.longitude,
-        'zoom': widget.zoom,
-        'showCenterMarker': widget.showCenterMarker,
+      surfaceFactory:
+          (BuildContext context, PlatformViewController controller) =>
+              AndroidViewSurface(
+        controller: controller as AndroidViewController,
+        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+        gestureRecognizers:
+            const <Factory<OneSequenceGestureRecognizer>>{},
+      ),
+      onCreatePlatformView: (PlatformViewCreationParams params) {
+        final AndroidViewController controller =
+            PlatformViewsService.initExpensiveAndroidView(
+          id: params.id,
+          viewType: 'green_clean_ops/amap',
+          layoutDirection: Directionality.of(context),
+          creationParams: <String, Object?>{
+            'latitude': widget.latitude,
+            'longitude': widget.longitude,
+            'zoom': widget.zoom,
+            'showCenterMarker': widget.showCenterMarker,
+          },
+          creationParamsCodec: const StandardMessageCodec(),
+          onFocus: () => params.onFocusChanged(true),
+        )
+          ..addOnPlatformViewCreatedListener(params.onPlatformViewCreated)
+          ..addOnPlatformViewCreatedListener(_onPlatformViewCreated)
+          ..create();
+        return controller;
       },
-      creationParamsCodec: const StandardMessageCodec(),
-      onPlatformViewCreated: _onPlatformViewCreated,
     );
   }
 }

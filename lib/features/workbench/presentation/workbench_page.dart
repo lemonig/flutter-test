@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -7,92 +10,36 @@ import '../../../shared/utils/toast.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/data/models/app_user.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../data/models/workbench_models.dart';
+import '../providers/workbench_providers.dart';
 
-/// 工作台 Tab：今日概览 + 上报 / 申请 / 统计 / 资料四组入口。
+/// 工作台（M7-01）：Banner + 今日概览 + 按权限过滤的功能入口。
 ///
-/// M1-03：入口按当前用户角色权限过滤。这里做分组级映射，
-/// M7-01 接入后端菜单元数据后可细化到单项。
-class WorkbenchPage extends ConsumerWidget {
+/// M7-02 ~ M7-10 的入口在这里集中接线；异常 / 巡检 / 签到是三条
+/// 业务闭环的快捷方式，直接复用已有路由。数据统计与资料库
+/// （M7-11 / M7-12）仍未排期，入口保留占位并明确提示。
+class WorkbenchPage extends ConsumerStatefulWidget {
   const WorkbenchPage({super.key});
 
-  static const List<_Entry> _reportEntries = <_Entry>[
-    _Entry(
-      '异常上报',
-      LucideIcons.triangleAlert,
-      Tone.danger,
-      AppPermission.handleAbnormal,
-    ),
-    _Entry(
-      '巡检记录',
-      LucideIcons.clipboardCheck,
-      Tone.brand,
-      AppPermission.reportMileage,
-    ),
-    _Entry(
-      '现场签到',
-      LucideIcons.mapPinCheckInside,
-      Tone.success,
-      AppPermission.viewWorkbench,
-    ),
-    _Entry(
-      '事件上报',
-      LucideIcons.megaphone,
-      Tone.warning,
-      AppPermission.viewWorkbench,
-    ),
-  ];
-
-  static const List<_Entry> _approvalEntries = <_Entry>[
-    _Entry(
-      '请假申请',
-      LucideIcons.calendarDays,
-      Tone.brand,
-      AppPermission.applyFee,
-    ),
-    _Entry('加班申请', LucideIcons.clock3, Tone.warning, AppPermission.applyFee),
-    _Entry('费用报销', LucideIcons.receipt, Tone.success, AppPermission.applyFee),
-    _Entry('出差申请', LucideIcons.plane, Tone.neutral, AppPermission.applyFee),
-  ];
-
-  static const List<_Entry> _statEntries = <_Entry>[
-    _Entry(
-      '任务统计',
-      LucideIcons.chartColumn,
-      Tone.brand,
-      AppPermission.statistics,
-    ),
-    _Entry('水质趋势', LucideIcons.waves, Tone.success, AppPermission.statistics),
-    _Entry('人员绩效', LucideIcons.users, Tone.warning, AppPermission.statistics),
-    _Entry(
-      '设备台账',
-      LucideIcons.hardDrive,
-      Tone.neutral,
-      AppPermission.statistics,
-    ),
-  ];
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WorkbenchPage> createState() => _WorkbenchPageState();
+}
+
+class _WorkbenchPageState extends ConsumerState<WorkbenchPage> {
+  @override
+  Widget build(BuildContext context) {
     final Set<AppPermission> permissions =
         ref.watch(authProvider).value?.user?.permissions ??
         const <AppPermission>{};
-
-    List<_Entry> visible(List<_Entry> entries) => entries
-        .where((_Entry entry) => permissions.contains(entry.permission))
-        .toList();
-
-    final List<_Entry> reports = visible(_reportEntries);
-    final List<_Entry> approvals = visible(_approvalEntries);
-    final List<_Entry> stats = visible(_statEntries);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('工作台'),
         actions: <Widget>[
           IconButton(
-            tooltip: '扫一扫',
-            onPressed: () => showToast(context, '扫码功能开发中'),
-            icon: const Icon(LucideIcons.scanLine),
+            tooltip: '我的申请',
+            onPressed: () => context.push('/workbench/apply-records'),
+            icon: const Icon(LucideIcons.fileClock, size: 20),
           ),
           const SizedBox(width: 8),
         ],
@@ -100,26 +47,274 @@ class WorkbenchPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
         children: <Widget>[
+          const _Banner(),
           const _OverviewCard(),
-          if (reports.isNotEmpty) ...<Widget>[
-            const SectionHeader(title: '上报管理'),
-            _EntryGrid(entries: reports),
-          ],
-          if (approvals.isNotEmpty) ...<Widget>[
-            const SectionHeader(title: '申请审批'),
-            _EntryGrid(entries: approvals),
-          ],
-          if (stats.isNotEmpty) ...<Widget>[
-            const SectionHeader(title: '数据统计'),
-            _EntryGrid(entries: stats),
-          ],
+          _entryGroup(
+            context,
+            title: '数据上报',
+            entries: <_Entry>[
+              _Entry(
+                '里程上报',
+                LucideIcons.gauge,
+                Tone.brand,
+                AppPermission.reportMileage,
+                onTap: () => context.push('/workbench/report/mileage'),
+              ),
+              _Entry(
+                '车辆费用',
+                LucideIcons.car,
+                Tone.warning,
+                AppPermission.reportCarFee,
+                onTap: () => context.push('/workbench/report/carFee'),
+              ),
+              _Entry(
+                '水电网费',
+                LucideIcons.plugZap,
+                Tone.success,
+                AppPermission.reportStationFee,
+                onTap: () => context.push('/workbench/report/stationFee'),
+              ),
+            ],
+            permissions: permissions,
+          ),
+          _entryGroup(
+            context,
+            title: '申请审批',
+            entries: <_Entry>[
+              _Entry(
+                '试剂申请',
+                LucideIcons.flaskConical,
+                Tone.brand,
+                AppPermission.applyReagent,
+                onTap: () => context.push('/workbench/apply/reagent'),
+              ),
+              _Entry(
+                '配件申请',
+                LucideIcons.cog,
+                Tone.warning,
+                AppPermission.applyPart,
+                onTap: () => context.push('/workbench/apply/part'),
+              ),
+              _Entry(
+                '运维工具',
+                LucideIcons.wrench,
+                Tone.success,
+                AppPermission.applyTool,
+                onTap: () => context.push('/workbench/apply/tool'),
+              ),
+              _Entry(
+                '临时费用',
+                LucideIcons.banknote,
+                Tone.danger,
+                AppPermission.applyFee,
+                onTap: () => context.push('/workbench/apply/fee'),
+              ),
+              _Entry(
+                '审批中心',
+                LucideIcons.stamp,
+                Tone.brand,
+                AppPermission.approve,
+                onTap: () => context.push('/workbench/approvals'),
+              ),
+            ],
+            permissions: permissions,
+          ),
+          _entryGroup(
+            context,
+            title: '业务闭环',
+            entries: <_Entry>[
+              _Entry(
+                '异常上报',
+                LucideIcons.triangleAlert,
+                Tone.danger,
+                AppPermission.handleAbnormal,
+                onTap: () => context.push('/task/create'),
+              ),
+              _Entry(
+                '首页时间线',
+                LucideIcons.house,
+                Tone.brand,
+                AppPermission.viewWorkbench,
+                onTap: () => context.go('/home'),
+              ),
+              _Entry(
+                '现场签到',
+                LucideIcons.mapPinCheckInside,
+                Tone.success,
+                AppPermission.viewWorkbench,
+                onTap: () => context.push('/attend/create'),
+              ),
+            ],
+            permissions: permissions,
+          ),
+          _entryGroup(
+            context,
+            title: '数据统计',
+            entries: <_Entry>[
+              _Entry(
+                '异常统计',
+                LucideIcons.triangleAlert,
+                Tone.danger,
+                AppPermission.statistics,
+                onTap: () => context.push('/workbench/stats/abnormal'),
+              ),
+              _Entry(
+                '巡检统计',
+                LucideIcons.clipboardCheck,
+                Tone.brand,
+                AppPermission.statistics,
+                onTap: () => context.push('/workbench/stats/inspection'),
+              ),
+              _Entry(
+                '里程统计',
+                LucideIcons.route,
+                Tone.success,
+                AppPermission.statistics,
+                onTap: () => context.push('/workbench/stats/mileage'),
+              ),
+            ],
+            permissions: permissions,
+          ),
+          _entryGroup(
+            context,
+            title: '资料库',
+            entries: <_Entry>[
+              _Entry(
+                '站点资料',
+                LucideIcons.mapPin,
+                Tone.brand,
+                AppPermission.stationData,
+                onTap: () => context.push('/workbench/directory/station'),
+              ),
+              _Entry(
+                '驻点资料',
+                LucideIcons.home,
+                Tone.warning,
+                AppPermission.stationData,
+                onTap: () => context.push('/workbench/directory/agency'),
+              ),
+              _Entry(
+                '用户资料',
+                LucideIcons.users,
+                Tone.success,
+                AppPermission.stationData,
+                onTap: () => context.push('/workbench/directory/user'),
+              ),
+              _Entry(
+                '车辆资料',
+                LucideIcons.car,
+                Tone.neutral,
+                AppPermission.stationData,
+                onTap: () => context.push('/workbench/directory/car'),
+              ),
+            ],
+            permissions: permissions,
+          ),
           const SectionHeader(title: '资料与制度'),
           const _DocumentCard(),
         ],
       ),
     );
   }
+
+  Widget _entryGroup(
+    BuildContext context, {
+    required String title,
+    required List<_Entry> entries,
+    required Set<AppPermission> permissions,
+  }) {
+    final List<_Entry> visible = entries
+        .where((_Entry entry) => permissions.contains(entry.permission))
+        .toList(growable: false);
+    if (visible.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: <Widget>[
+        SectionHeader(title: title),
+        _EntryGrid(entries: visible),
+      ],
+    );
+  }
 }
+
+/// 顶部轮播（`GET meta/banner`）。加载失败静默收起，不占版面；
+/// 单图不轮播，多图 4 秒自动翻页。
+class _Banner extends ConsumerStatefulWidget {
+  const _Banner();
+
+  @override
+  ConsumerState<_Banner> createState() => _BannerState();
+}
+
+class _BannerState extends ConsumerState<_Banner> {
+  PageController? _controller;
+  Timer? _timer;
+  int _index = 0;
+  int _length = 0;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _ensureTimer(int length) {
+    if (length == _length) return;
+    _length = length;
+    _timer?.cancel();
+    _timer = null;
+    if (length <= 1) return;
+    _controller ??= PageController();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || !(_controller?.hasClients ?? false)) return;
+      final int next = (_index + 1) % length;
+      _controller!.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AsyncValue<List<WorkBanner>> banners = ref.watch(workBannersProvider);
+    final List<WorkBanner> list = banners.asData?.value ?? const <WorkBanner>[];
+    // Timer 的启停在帧尾处理，避免 build 期间改状态。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _ensureTimer(list.length);
+    });
+    if (list.isEmpty) return const SizedBox.shrink();
+
+    final Widget content = list.length == 1
+        ? _imageOf(list.first)
+        : PageView.builder(
+            controller: _controller,
+            itemCount: list.length,
+            onPageChanged: (int index) => _index = index,
+            itemBuilder: (BuildContext context, int index) =>
+                _imageOf(list[index]),
+          );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(height: 108, child: content),
+      ),
+    );
+  }
+
+  Widget _imageOf(WorkBanner banner) => Image.network(
+    banner.imageUrl,
+    fit: BoxFit.cover,
+    width: double.infinity,
+    errorBuilder: (_, _, _) =>
+        Container(color: Theme.of(context).colorScheme.surfaceContainerHigh),
+  );
+}
+
+// ───────────────────────────── 概览与入口 ─────────────────────────────
 
 class _OverviewCard extends StatelessWidget {
   const _OverviewCard();
@@ -144,76 +339,16 @@ class _OverviewCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '11 月 04 日 周二',
+                  '数据口径待后端统计接口，暂为占位',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Row(
-              children: <Widget>[
-                Expanded(
-                  child: _Stat(value: '12', label: '待办任务', tone: Tone.warning),
-                ),
-                _StatDivider(),
-                Expanded(
-                  child: _Stat(value: '4', label: '进行中', tone: Tone.brand),
-                ),
-                _StatDivider(),
-                Expanded(
-                  child: _Stat(value: '36', label: '本月完成', tone: Tone.success),
-                ),
-              ],
-            ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, required this.tone});
-
-  final String value;
-  final String label;
-  final Tone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Column(
-      children: <Widget>[
-        Text(
-          value,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            color: tone.foreground,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatDivider extends StatelessWidget {
-  const _StatDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 28,
-      color: Theme.of(context).colorScheme.outlineVariant,
     );
   }
 }
@@ -225,14 +360,24 @@ class _EntryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 每行最多 4 个入口；超出换行，避免 5 项挤在一行文字被截断。
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-        child: Row(
-          children: <Widget>[
-            for (final _Entry entry in entries)
-              Expanded(child: _EntryTile(entry: entry)),
-          ],
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            const int perRow = 4;
+            final double width =
+                (constraints.maxWidth - (perRow - 1) * 8) / perRow;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 12,
+              children: <Widget>[
+                for (final _Entry entry in entries)
+                  SizedBox(width: width, child: _EntryTile(entry: entry)),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -249,7 +394,7 @@ class _EntryTile extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return InkWell(
-      onTap: () => showToast(context, '「${entry.label}」开发中'),
+      onTap: entry.onTap,
       borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -330,10 +475,11 @@ class _DocumentCard extends StatelessWidget {
 }
 
 class _Entry {
-  const _Entry(this.label, this.icon, this.tone, this.permission);
+  const _Entry(this.label, this.icon, this.tone, this.permission, {this.onTap});
 
   final String label;
   final IconData icon;
   final Tone tone;
   final AppPermission permission;
+  final VoidCallback? onTap;
 }

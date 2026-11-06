@@ -49,3 +49,6 @@ app.*.map.json
 
 # 构建产物（tool/build_apk.ps1 输出）
 /dist/
+
+# ZCode 本地会话元数据
+.agents/

@@ -110,9 +110,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('今日概览'), findsOneWidget);
-    expect(find.text('异常上报'), findsOneWidget);
+    // M7 改造后首屏是「数据上报」组（里程 / 车辆费用 / 水电网费）。
+    expect(find.text('里程上报'), findsOneWidget);
+    expect(find.text('车辆费用'), findsOneWidget);
+    expect(find.text('水电网费'), findsOneWidget);
 
-    await tester.drag(find.text('今日概览'), const Offset(0, -320));
+    // 业务闭环组与资料卡在首屏之外，滚动后可见。
+    // 一次拖到底（测试屏 600 高，列表总高约 1200）。
+    await tester.drag(find.text('今日概览'), const Offset(0, -900));
     await tester.pumpAndSettle();
     expect(find.text('运维知识库'), findsOneWidget);
   });

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/task_activity.dart';
 import '../data/models/task_detail.dart';
 import '../data/models/task_process.dart';
+import '../data/repositories/ops_user_repository.dart';
 import '../data/repositories/task_detail_repository.dart';
 
 /// 异常详情及其附属数据（M3-02 ~ M3-05）。
@@ -41,6 +42,15 @@ final taskErrorUnitsProvider =
           ref.watch(taskDetailRepositoryProvider).fetchErrorUnits(id),
     );
 
+/// 转交候选处理人（C7）。keyword 进 family：输入变化即得到新条目，
+/// 天然丢弃旧请求结果，无需手工防抖。
+final transferCandidatesProvider =
+    FutureProvider.family<List<OpsUser>, String>(
+      (Ref ref, String keyword) => ref
+          .watch(opsUserRepositoryProvider)
+          .fetchOpsUsers(keyword: keyword),
+    );
+
 /// 详情页动作的统一出口：执行后同时失效详情与首页列表，
 /// 保证「处理完返回首页，列表状态已更新」。
 class TaskActionService {
@@ -62,6 +72,9 @@ class TaskActionService {
 
   Future<void> terminate(String id, String description) =>
       _repo.terminate(id, description);
+
+  Future<void> transfer(String id, int toUserId) =>
+      _repo.transfer(id, toUserId);
 
   Future<void> addComment(String id, String content) =>
       _repo.addComment(id, content);

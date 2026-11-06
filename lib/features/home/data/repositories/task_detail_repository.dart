@@ -8,6 +8,7 @@ import '../models/task_detail.dart';
 import '../models/task_item.dart';
 import '../models/task_process.dart';
 import 'home_repository.dart';
+import 'ops_user_repository.dart';
 
 /// 异常详情与操作的读写入口（M3-02 ~ M3-05）。
 ///
@@ -40,6 +41,13 @@ abstract class TaskDetailRepository {
   Future<void> reject(String id, String description);
 
   Future<void> terminate(String id, String description);
+
+  /// `POST task/transfer`：把任务转交给其他运维人员（C7）。
+  ///
+  /// 服务端校验：仅待处理、只能转交一次、不能转给自己、
+  /// 接收人必须是在职运维；接收人接受前任务处于「转交冻结」，
+  /// 双方都不能提交处理结果。
+  Future<void> transfer(String id, int toUserId, {bool force = false});
 }
 
 /// 评论 / 点赞的目标类型，对齐后端 `CommentTypeEnum.Task(1)`。
@@ -177,6 +185,19 @@ class RemoteTaskDetailRepository implements TaskDetailRepository {
     'task/${_parseId(id)}/terminate',
     data: <String, Object?>{'description': description.trim()},
   );
+
+  /// 对齐后端 `JobTransferLog`：`fromUserId` 由服务端从 token 解出，
+  /// `jobType` 只在巡检转交时才有意义，故障转交无需传。
+  @override
+  Future<void> transfer(String id, int toUserId, {bool force = false}) =>
+      _api.postRaw(
+        'task/transfer',
+        data: <String, Object?>{
+          'jobId': _parseId(id),
+          'toUserId': toUserId,
+          'force': force,
+        },
+      );
 }
 
 /// 演示实现：让 `green-ops-demo.apk` 在没有后端时也能走完
@@ -478,6 +499,27 @@ class MockTaskDetailRepository implements TaskDetailRepository {
       auth: const TaskAuth(),
     );
     _appendLog(id, '终止任务：$description', TaskState.terminated);
+  }
+
+  @override
+  Future<void> transfer(String id, int toUserId, {bool force = false}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 320));
+    final TaskDetail current = _of(id);
+    if (current.state != TaskState.todo) {
+      throw const AppException(
+        '仅待处理的任务可以转交',
+        kind: ApiErrorKind.business,
+        code: 'FIELD_ERROR',
+      );
+    }
+    String toName = '运维同事';
+    for (final OpsUser user in MockOpsUserRepository.mockOpsUsers) {
+      if (user.id == toUserId) toName = user.nickname;
+    }
+    // 对齐服务端：非强转时接收人还没接受，任务进入「转交冻结」，
+    // 当前账号不能再提交处理结果（enableToSubmit = false）。
+    _store[id] = current.copyWith(auth: const TaskAuth());
+    _appendLog(id, '转交任务给$toName，待接受', current.state);
   }
 }
 

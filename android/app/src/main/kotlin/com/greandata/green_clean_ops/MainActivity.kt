@@ -20,14 +20,14 @@ class MainActivity : FlutterActivity() {
         pushBridge.attach(flutterEngine.dartExecutor.binaryMessenger)
 
         // 高德地图 PlatformView（M0-07）：官方插件的 Android 工程是 AGP 3.5 写法，
-        // 与 AGP 9 不兼容，所以地图渲染直接由原生 MapView 承载。
+        // 与 AGP 9 不兼容，所以地图渲染直接由原生 TextureMapView 承载。
         flutterEngine.platformViewsController.registry.registerViewFactory(
             "green_clean_ops/amap",
             AmapPlatformViewFactory(flutterEngine.dartExecutor.binaryMessenger),
         )
     }
 
-    // MapView 的生命周期必须跟随 Activity，否则地图会停止渲染；
+    // TextureMapView 的生命周期必须跟随 Activity，否则地图会停止渲染；
     // PlatformView 拿不到这些回调，只能在这里转发给 AmapLifecycle。
     override fun onResume() {
         super.onResume()

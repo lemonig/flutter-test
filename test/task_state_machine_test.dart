@@ -86,14 +86,32 @@ void main() {
       expect(_actionOf(task, 'terminate').danger, isTrue);
     });
 
-    test('转交与编辑尚未接入，始终置灰', () {
+    test('转交跟随服务端 auth，编辑仍待接入', () {
       final TaskDetail task = _task(
         auth: const TaskAuth(enableToTransfer: true, enableToEdit: true),
       );
-      expect(_actionOf(task, 'transfer').disabled, isTrue);
-      expect(_actionOf(task, 'transfer').reason, contains('待接入'));
+      final TaskAction transfer = _actionOf(task, 'transfer');
+      expect(transfer.enabled, isTrue);
+      expect(transfer.reason, '选择一位在职运维人员接收该任务');
       expect(_actionOf(task, 'edit').disabled, isTrue);
       expect(_actionOf(task, 'edit').reason, contains('待接入'));
+    });
+
+    test('服务端不放行时转交置灰并按状态给出原因', () {
+      expect(_actionOf(_task(), 'transfer').disabled, isTrue);
+      expect(
+        _actionOf(_task(state: TaskState.confirmed), 'transfer').reason,
+        '任务已结束',
+      );
+      expect(
+        _actionOf(_task(state: TaskState.doing), 'transfer').reason,
+        '仅待处理的任务可转交',
+      );
+      // 状态是待处理但 auth 为 false：不是最初执行人或已转交过。
+      expect(
+        _actionOf(_task(state: TaskState.todo), 'transfer').reason,
+        '仅任务的最初执行人可转交，且只能转交一次',
+      );
     });
   });
 }
