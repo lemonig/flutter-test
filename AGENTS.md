@@ -16,7 +16,7 @@
 
 外加：消息（推送流水 + 转交任务处置）、个推推送、个人资料与设置。
 
-**当前状态**：三条业务闭环全部打通，消息/推送接入真实后端。`flutter analyze` 0 issue，`flutter test` **205 通过 + 4 跳过**。
+**当前状态**：三条业务闭环全部打通，消息/推送接入真实后端。异常详情支持转交任务（C7）。工作台已对齐 iOS 版核心功能（M7-02 ~ M7-12：上报三件套、四类申请 + 抄送人 + 申请评论、申请记录与审批中心、统计三页、资料库四类）。`flutter analyze` 0 issue，`flutter test` **240 通过 + 4 跳过**。
 
 ---
 
@@ -141,6 +141,22 @@ docs/                  规划 / 契约 / 未完成清单 / 截图
 - **评论/点赞的 `itemType` 传错不报错**：任务=1、签到=2、巡检=3，传错只是静默读不到。
 - **个推推送文案有敏感词**：含"个推"二字会返回 `code 20001 param contains sensitive word`。
 
+### 8. 高德地图 PlatformView 的三个坑（2026-11-06 实测）
+
+1. **必须用 `TextureMapView` 而非 `MapView`**：SurfaceView 在 Flutter
+   PlatformView 合成里是独立 surface，截屏拿不到内容、列表内多张地图互相穿透黑块。
+2. **创建时必须补 `map.onResume()`**：PlatformView 总在 Activity 已 resumed
+   之后才创建，`MainActivity.onResume` 的转发不会再触发，
+   不补调一次地图引擎永远不开始渲染（表现：整块白屏）。
+3. **必须走 hybrid composition（`initExpensiveAndroidView`）**：AndroidView
+   默认 TLHC 模式的 SurfaceProducer 合成在雷电模拟器（host-GL 直通）上
+   会把地图纹理丢在合成外 —— 症状是鉴权通过、瓦片已落盘、手势正常，
+   但屏幕与截屏全白；logcat 特征 `FrameEvents: updateAcquireFence: Did not find frame`。
+   HC 模式走系统视图层级合成后一切正常，代价是性能略差。
+   诊断顺序：logcat 有无 `INVALID_USER_SCODE` → `run-as` 看
+   `cache/authCustomConfigName` 是否生成（服务端下发配置 = 鉴权通过）→
+   `files/EBDEC84*` 是否有瓦片数据库（数据到达 = 只差合成）。
+
 ### 7. 别名规则（推送）
 
 服务端 `AppPushService.PREFIX = "LJYW"`，`alias = "LJYW" + userId`。客户端必须绑同一个别名（`pushAliasFor(userId)`）。原 Android 工程冷启动时绑了不带前缀的 userId，属于 bug，别照抄。
@@ -152,7 +168,7 @@ docs/                  规划 / 契约 / 未完成清单 / 截图
 | 服务 | 状态 | 备注 |
 |---|---|---|
 | **个推** 推送 | ✅ 已跑通 | AppID `xD7UWWJDKl8jmq6AiuNnC2`（在 `app/build.gradle.kts` 的 manifestPlaceholders）。AppKey/Secret/MasterSecret 只在服务端（`ops-mobile/application.properties` 的 `gpush.*`），别放客户端。已实测 CID + 别名 + 真实推送到达通知栏。 |
-| **高德 Android Key** | ❌ 不可用 | `f6457d0b866d0dc5e93e7f95f4a9bdc5` 绑的是旧包名 `com.xiyoukeji.operations`，实测 `INVALID_USER_SCODE`(10008)。**需在控制台改绑** `com.greandata.green_clean_ops` + SHA1 `8A:30:16:40:75:1C:24:E9:5F:20:CC:E4:EE:86:91:9A:E9:DF:19:A3`。改绑后地图立即可用，代码不用动。 |
+| **高德 Android Key** | ✅ 已跑通（2026-11-06） | 新 Key `8d3f5d8cfd5aaeca927a4b99dd244011`，绑 `com.greandata.green_clean_ops` + debug SHA1。模拟器实测：选点页与车辆资料内嵌地图卡瓦片正常渲染，鉴权零报错。旧 Key `f6457d0b866d0dc5e93e7f95f4a9bdc5` 作废。**注意**：Flutter 端必须走 hybrid composition（`initExpensiveAndroidView`），TLHC 默认模式在此模拟器上纹理不合成（详见踩过的坑 §8）。 |
 | **高德 Web 服务 Key** | ❌ 缺安全密钥 | `989f15a5d1efca77bd42d7a0dfaad11b` 开了数字签名，REST 返回 `10007`。要安全密钥，或关掉签名。**注意**：私钥别硬编码进 APK，应让后端代理（`ops-mobile` 目前没有高德代理，需加接口）。 |
 | **高德 iOS Key** | 备用 | `7580e1cfe1ae7e6e243b28d8edc3513a`（iOS 暂不做） |
 | 阿里云 OSS | ✅ | 上传走后端代传 `POST api/upload/{type}/file`（type：1异常 3头像 4巡检 6签到），产物是 `task/` `avatar/` `ops/` `check/` 前缀的 objectKey |
@@ -164,8 +180,8 @@ docs/                  规划 / 契约 / 未完成清单 / 截图
 
 按性价比排序（详见 `docs/未完成功能清单.md`）：
 
-1. **C7 委派任务** —— 异常详情里"转交"按钮现在是灰的（`task_state_machine.dart` 的 `transfer` 固定 `enabled:false`）。后端 `task/transfer` 已存在，补个人员选择器就闭环了。
-2. **C1 工作台 M7-02~M7-07** —— 里程上报/车辆费用/水电网费/试剂申请等，套路一致可批量做。现在 `workbench_page.dart` 里全是 `showToast('开发中')`。
+1. ~~**C7 委派任务**~~ —— ✅ 已完成（2026-11-05）：详情页「转交任务」已点亮，人员选择弹层 `showTransferSheet` + `POST task/transfer`，契约见 `docs/接口契约.md` §18。处理页内若要做「处理时直接委派」可复用该弹层。
+2. ~~**C1 工作台 M7-02~M7-12**~~ —— ✅ 已完成（2026-11-06，两轮）：上报三件套 + 四类申请（抄送人 / 申请评论对齐 iOS）+ 审批中心 + 统计三页 + 资料库四类，契约见 `docs/接口契约.md` §19。残留：配件 H5 详情（WebView 插件不可用）、车辆定位地图展示（等高德 Key 改绑）。
 3. **C4 + C5 搜索页与日期区间筛选** —— 首页搜索框现在点了没反应。
 4. **B4 申请/审批契约** —— 后端 `ApplyController` 存在但契约没提取，确认后再做 M7-08~M7-10。
 5. **A1/B2 地图与地址** —— 等 Key 改绑；在此之前地址管理可以先做"文本地址 + 经纬度手填"。
@@ -179,7 +195,7 @@ docs/                  规划 / 契约 / 未完成清单 / 截图
 cd F:/yunwei/green_clean_ops
 export NO_PROXY="localhost,127.0.0.1,::1"
 flutter analyze          # 期望：No issues found
-flutter test             # 期望：All tests passed!（205 通过 + 4 跳过）
+flutter test             # 期望：All tests passed!（240 通过 + 4 跳过）
 powershell -File tool/build_apk.ps1 -Target dev   # 期望：dist/green-ops-dev.apk
 ```
 
