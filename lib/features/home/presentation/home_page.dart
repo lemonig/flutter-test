@@ -142,9 +142,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               role: user?.role.label,
               onNotificationTap: () => context.go('/messages'),
               onCreateTap: () => showQuickCreateSheet(context),
-              onSearchTap: () => context.push('/search'),
             ),
-            // 筛选区（分类 + 快捷筛选）随列表滑动收起/展开：
+            // 搜索框 + 筛选区（分类 + 快捷筛选）随列表滑动收起/展开：
             // padding 放进动画子树里，收起后完全归零不留缝。
             AnimatedSize(
               duration: const Duration(milliseconds: 240),
@@ -155,6 +154,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
+                        HomeSearchBar(onTap: () => context.push('/search')),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                           child: CategorySelector(

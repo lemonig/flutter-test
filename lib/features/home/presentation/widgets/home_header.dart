@@ -3,14 +3,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../shared/widgets/env_badge.dart';
 
-/// 首页顶部：标题、环境徽标、消息入口、新建入口与搜索框。
+/// 首页顶部：标题、环境徽标、消息入口与新建入口。
+///
+/// 搜索框拆成独立的 [HomeSearchBar]，随列表滑动一起收起。
 class HomeHeader extends StatelessWidget {
   const HomeHeader({
     super.key,
     required this.unreadCount,
     required this.onNotificationTap,
     required this.onCreateTap,
-    required this.onSearchTap,
     this.account,
     this.role,
   });
@@ -18,7 +19,6 @@ class HomeHeader extends StatelessWidget {
   final int unreadCount;
   final VoidCallback onNotificationTap;
   final VoidCallback onCreateTap;
-  final VoidCallback onSearchTap;
 
   /// 诊断面板里展示的登录身份，未登录时为 null。
   final String? account;
@@ -80,18 +80,35 @@ class HomeHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          SearchBar(
-            hintText: '搜索站点、任务、人员',
-            leading: Icon(
-              LucideIcons.search,
-              size: 19,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            readOnly: true,
-            onTap: onSearchTap,
-          ),
         ],
+      ),
+    );
+  }
+}
+
+/// 首页搜索框（占位跳转 /search）。
+///
+/// 独立于标题栏：上滑列表时随筛选区一起收起，下滑恢复。
+class HomeSearchBar extends StatelessWidget {
+  const HomeSearchBar({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 16, 0),
+      child: SearchBar(
+        hintText: '搜索站点、任务、人员',
+        leading: Icon(
+          LucideIcons.search,
+          size: 19,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        readOnly: true,
+        onTap: onTap,
       ),
     );
   }
