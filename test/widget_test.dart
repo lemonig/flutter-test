@@ -128,8 +128,9 @@ void main() {
     await tester.tap(find.text('信息填报'));
     await tester.pumpAndSettle();
 
-    expect(find.text('本周信息填报'), findsOneWidget);
-    expect(find.textContaining('采水单元'), findsWidgets);
+    // M8 后信息填报是真实讨论区：MockPinRepository 的种子帖子可见。
+    expect(find.text('漠江站运维任务无法填报'), findsOneWidget);
+    expect(find.text('全部'), findsOneWidget);
   });
 
   testWidgets('我的 Tab 展示个人资料与设置项', (WidgetTester tester) async {

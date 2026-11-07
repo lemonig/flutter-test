@@ -10,6 +10,7 @@ import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/splash_page.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/discussion/presentation/discussion_page.dart';
+import '../../features/discussion/presentation/post_pin_page.dart';
 import '../../features/home/data/models/task_item.dart';
 import '../../features/home/presentation/create_attend_page.dart';
 import '../../features/home/presentation/create_task_page.dart';
@@ -167,6 +168,12 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         name: 'addresses',
         builder: (BuildContext context, GoRouterState state) =>
             const AddressListPage(),
+      ),
+      GoRoute(
+        path: '/discussion/new',
+        name: 'discussionNew',
+        builder: (BuildContext context, GoRouterState state) =>
+            const PostPinPage(),
       ),
       GoRoute(
         path: '/search',
