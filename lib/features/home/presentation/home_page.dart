@@ -31,6 +31,12 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   int _categoryIndex = 0;
 
+  /// 上滑时筛选区是否已收起；下滑（哪怕在顶部回弹）即重新展开。
+  bool _filtersCollapsed = false;
+
+  /// 上滑超过这个距离才收起，避免轻微拖动就误收。
+  static const double _collapseThreshold = 48;
+
   TaskCategory get _category => TaskCategory.values[_categoryIndex];
 
   @override
@@ -87,6 +93,25 @@ class _HomePageState extends ConsumerState<HomePage> {
     await ref.read(taskListProvider(_category).notifier).applyFilters(result);
   }
 
+  /// 列表上滑（看更多内容）收起筛选区，下滑重新展开。
+  ///
+  /// 用 ScrollUpdateNotification 而不是 UserScrollNotification：
+  /// 后者只在方向变化瞬间发一次（此时 pixels 还是 0，阈值永远够不着），
+  /// 前者每次滚动增量都发，能拿到实时位置。列表内容不足一屏时
+  /// pixels 恒为 0，永远收不起来 —— 没有要腾的空间，筛选常驻是对的。
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification is! ScrollUpdateNotification) return false;
+    final double? delta = notification.scrollDelta;
+    if (delta == null) return false;
+    if (delta > 0 && notification.metrics.pixels > _collapseThreshold) {
+      if (!_filtersCollapsed) setState(() => _filtersCollapsed = true);
+    } else if (delta < 0 && _filtersCollapsed) {
+      setState(() => _filtersCollapsed = false);
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final Map<String, String> filters =
@@ -119,34 +144,54 @@ class _HomePageState extends ConsumerState<HomePage> {
               onCreateTap: () => showQuickCreateSheet(context),
               onSearchTap: () => context.push('/search'),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: CategorySelector(
-                selected: _category,
-                onChanged: _changeCategory,
-              ),
-            ),
-            QuickFilterBar(
-              options: quickOptions,
-              selected: filters[quickKey] ?? TaskFilterConfig.defaultOption,
-              activeCount: filters.values
-                  .where(
-                    (String value) => value != TaskFilterConfig.defaultOption,
-                  )
-                  .length,
-              onSelected: _selectStatus,
-              onOpenFilter: () => _openFilterSheet(groups),
+            // 筛选区（分类 + 快捷筛选）随列表滑动收起/展开：
+            // padding 放进动画子树里，收起后完全归零不留缝。
+            AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              child: _filtersCollapsed
+                  ? const SizedBox(width: double.infinity)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                          child: CategorySelector(
+                            selected: _category,
+                            onChanged: _changeCategory,
+                          ),
+                        ),
+                        QuickFilterBar(
+                          options: quickOptions,
+                          selected:
+                              filters[quickKey] ??
+                              TaskFilterConfig.defaultOption,
+                          activeCount: filters.values
+                              .where(
+                                (String value) =>
+                                    value != TaskFilterConfig.defaultOption,
+                              )
+                              .length,
+                          onSelected: _selectStatus,
+                          onOpenFilter: () => _openFilterSheet(groups),
+                        ),
+                      ],
+                    ),
             ),
             Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (int index) =>
-                    setState(() => _categoryIndex = index),
-                children: const <Widget>[
-                  TaskListView(category: TaskCategory.abnormal),
-                  TaskListView(category: TaskCategory.inspection),
-                  TaskListView(category: TaskCategory.signIn),
-                ],
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _onScrollNotification,
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (int index) =>
+                      setState(() => _categoryIndex = index),
+                  children: const <Widget>[
+                    TaskListView(category: TaskCategory.abnormal),
+                    TaskListView(category: TaskCategory.inspection),
+                    TaskListView(category: TaskCategory.signIn),
+                  ],
+                ),
               ),
             ),
           ],
