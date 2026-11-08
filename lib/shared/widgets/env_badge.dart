@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +64,10 @@ class EnvDescriptor {
 }
 
 /// 环境徽标：首页标题旁常驻，点开即环境诊断面板。
+///
+/// 发布包（`flutter build apk` 出的 release）不渲染 —— 徽标是开发期
+/// 辨认数据源用的，给测试/用户的包不该带「开发」角标和诊断入口；
+/// debug/profile 构建保留，连后端排查时一眼可辨环境。
 class EnvBadge extends ConsumerWidget {
   const EnvBadge({super.key, this.account, this.role});
 
@@ -71,6 +76,7 @@ class EnvBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (kReleaseMode) return const SizedBox.shrink();
     final bool demo = ref.watch(useMockProvider);
     final EnvDescriptor env = EnvDescriptor.of(demo: demo);
     final TextTheme text = Theme.of(context).textTheme;
